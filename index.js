@@ -36,9 +36,23 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     console.log("MongoDB connection are successfully");
-    const db = client.db("parcelDB"); // database name
+    const db = client.db("parcelDB");
+    const usersCollection = db.collection("users");
     const parcelCollection = db.collection("parcels");
     const paymentsCollection = db.collection("payments");
+
+    app.post("/users", async (req, res) => {
+      const email = req.body.email;
+      const userExists = await usersCollection.findOne({ email });
+      if (userExists) {
+        return res
+          .status(200)
+          .send({ message: "user already exists", insertedId: false });
+      }
+      const user = req.body;
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
 
     // app.get('/parcels', async (req, res) => {
     //     const parcels = await parcelCollection.find().toArray();
@@ -145,6 +159,30 @@ async function run() {
       const result = await parcelCollection.deleteOne(query);
       res.send(result);
     });
+
+    // track parcel
+    app.post("/tracking", async (req, res) => {
+      const {
+        tracking_id,
+        parcel_id,
+        status,
+        message,
+        updated_by = "",
+      } = req.body;
+
+      const log = {
+        tracking_id,
+        parcel_id: parcel_id ? new ObjectId(parcel_id) : undefined,
+        status,
+        message,
+        time: new Date(),
+        updated_by,
+      };
+
+      const result = await trackingCollection.insertOne(log);
+      res.send({ success: true, insertedId: result.insertedId });
+    });
+
     // Payments Api
 
     app.get("/payments", async (req, res) => {
